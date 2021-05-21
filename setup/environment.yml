@@ -107,6 +107,7 @@ dependencies:
     - lru-dict==1.1.6
     - macholib==1.14
     - mccabe==0.6.1
+    - messari==1.0.0
     - multiaddr==0.0.9
     - multidict==4.7.5
     - mypy-extensions==0.4.3

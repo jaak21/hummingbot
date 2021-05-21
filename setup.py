@@ -143,6 +143,7 @@ def main():
         "sqlalchemy",
         "ujson",
         "yarl",
+        "messari",
     ]
 
     cython_kwargs = {
