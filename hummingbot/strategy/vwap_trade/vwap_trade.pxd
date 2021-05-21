@@ -49,6 +49,8 @@ cdef class VwapTradeStrategy(StrategyBase):
         bint _first_order
         double _trading_time_duration_secs
         double _trading_start_time
+        double _trading_volume_checkpoint_time
+        double _last_hour_trading_volume
         bint _is_vwap
         bint _use_messari_api
         object _ms_obj

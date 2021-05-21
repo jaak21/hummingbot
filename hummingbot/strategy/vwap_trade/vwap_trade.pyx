@@ -164,6 +164,7 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         self._buzzer_price = buzzer_price
         self._buzzer_percent = buzzer_percent
+        self._last_hour_trading_volume = 0
 
         if floor_price is not None:
             self._floor_price = floor_price
@@ -554,6 +555,7 @@ cdef class VwapTradeStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         self._trading_start_time = timestamp
+        self._trading_volume_checkpoint_time = timestamp
         StrategyBase.c_start(self, clock, timestamp)
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
         self._previous_timestamp = timestamp
@@ -632,12 +634,14 @@ cdef class VwapTradeStrategy(StrategyBase):
 
             if self._use_messari_api:
                 # TODO: work within rate limiter here (don't do this too frequently)
-                last_hour_trading_volume = self._ms_obj.get_1hr_trading_volume_on_exchange()
+                if (self._current_timestamp - self._trading_volume_checkpoint_time > 120) or self._first_order:
+                    self.logger().info("Fetching the latest trading volume info from Messari")
+                    self._last_hour_trading_volume = self._ms_obj.get_1hr_trading_volume_on_exchange()
+                    self._trading_volume_checkpoint_time = self._current_timestamp
                 fixed_rate = 0.01  # TODO: adjust if buzzer_price reached
-                order_cap = self._order_percent_of_volume * last_hour_trading_volume * fixed_rate
+                order_cap = self._order_percent_of_volume * self._last_hour_trading_volume * fixed_rate
 
-                self.logger().info("Using Messari to get trade volume info")
-                self.logger().info(f"Last hour of trading volume: {last_hour_trading_volume}")
+                self.logger().info(f"Last hour of trading volume: {self._last_hour_trading_volume}")
                 quantized_amount = Decimal.from_float(order_cap)
 
             else:  # if not messari, then let's try the exchange
