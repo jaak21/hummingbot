@@ -133,11 +133,11 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._is_buy = is_buy
         self._total_order_amount = total_order_amount
         # number of sessiosn for trading
-        self._num_trading_sessions = num_trading_sessions
+        self._num_trading_sessions = num_trading_sessions  # sessions left -> round(total_order_amount / total_order_per_session)
         # number of tokens to sell per session
         self._total_order_per_session = total_order_per_session
         self._session_tracking = {"count": num_trading_sessions, "total_order_per_session": total_order_per_session, "total_order_amount": total_order_amount,
-                                  "session_duration": None, "sessions_left": round(total_order_amount / total_order_per_session), "last_hour_trading_volume": None}
+                                  "session_duration": None, "last_hour_trading_volume": None}
         self._first_order = True
         self._is_vwap = is_vwap
         self._percent_slippage = percent_slippage
