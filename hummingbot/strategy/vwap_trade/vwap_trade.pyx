@@ -95,6 +95,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                  asset_price_delegate: AssetPriceDelegate = None,
                  hb_app_notification: bool = False,
                  use_messari_api: bool = False,
+                 messari_api_rate: int = 60,
                  order_override: Dict[str, List[str]] = {}):
 
         """
@@ -135,6 +136,8 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._num_trading_sessions = num_trading_sessions
         # number of tokens to sell per session
         self._total_order_per_session = total_order_per_session
+        self._session_tracking = {"count": num_trading_sessions, "total_order_per_session": total_order_per_session, "total_order_amount": total_order_amount,
+                                  "session_duration": None, "sessions_left": round(total_order_amount / total_order_per_session), "last_hour_trading_volume": None}
         self._first_order = True
         self._is_vwap = is_vwap
         self._percent_slippage = percent_slippage
@@ -159,12 +162,12 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
         self._asset_price_delegate = asset_price_delegate
         self._order_override = order_override
-        self._use_messari_api = use_messari_api
         self._hb_app_notification = hb_app_notification
 
         self._buzzer_price = buzzer_price
         self._buzzer_percent = buzzer_percent
-        self._last_hour_trading_volume = 0
+        self._use_messari_api = use_messari_api
+        self._messari_api_rate = messari_api_rate
 
         if floor_price is not None:
             self._floor_price = floor_price
@@ -175,6 +178,7 @@ cdef class VwapTradeStrategy(StrategyBase):
             trading_pair = str(self._market_info.trading_pair)
             # TODO: extract exchange name here
             self._ms_obj = TokenMetrics(trading_pair.split("-")[0], exchange="coinbase", verbose=True)
+            self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume_on_exchange()
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
@@ -502,6 +506,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
                 )
+                self._session_tracking["total_order_per_session"] = Decimal(self._session_tracking["total_order_per_session"]) - Decimal(limit_order_record.quantity)
             else:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
                 self.log_with_clock(
@@ -509,6 +514,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                     f"({market_info.trading_pair}) Market buy order {order_id} "
                     f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
+                self._session_tracking["total_order_per_session"] = Decimal(self._session_tracking["total_order_per_session"]) - Decimal(market_order_record.amount)
             self._has_outstanding_order = False
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
@@ -532,6 +538,8 @@ cdef class VwapTradeStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
                 )
+                self._session_tracking["total_order_per_session"] = Decimal(self._session_tracking["total_order_per_session"]) - Decimal(limit_order_record.quantity)
+                self._session_tracking["total_order_amount"] = Decimal(self._session_tracking["total_order_amount"]) - Decimal(limit_order_record.quantity)
             else:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_info, order_id)
                 self.log_with_clock(
@@ -539,6 +547,8 @@ cdef class VwapTradeStrategy(StrategyBase):
                     f"({market_info.trading_pair}) Market sell order {order_id} "
                     f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
+                self._session_tracking["total_order_per_session"] = Decimal(self._session_tracking["total_order_per_session"]) - Decimal(market_order_record.amount)
+                self._session_tracking["total_order_amount"] = Decimal(self._session_tracking["total_order_amount"]) - Decimal(market_order_record.amount)
             self._has_outstanding_order = False
 
     cdef c_did_fail_order(self, object order_failed_event):
@@ -560,6 +570,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
         self._previous_timestamp = timestamp
         self._last_timestamp = timestamp
+        self._session_tracking["session_duration"] = timestamp
 
     cdef c_tick(self, double timestamp):
         """
@@ -608,6 +619,32 @@ cdef class VwapTradeStrategy(StrategyBase):
         if market_info is not None:
             self._has_outstanding_order = False
 
+    cdef c_get_order_depth(self, num_entries):
+        """
+        Get the order book depth on the exchange.
+        """
+        cdef:
+            OrderBook order_book = self.market_info.order_book
+        orders = []
+        count = 0
+        if self._is_buy:  # buy
+            for entry in order_book.bid_entries():
+                orders.append(entry.amount); count += 1
+                if count == num_entries:
+                    break
+        else:  # sell
+            for entry in order_book.ask_entries():
+                orders.append(entry.amount); count += 1
+                if count == num_entries:
+                    break
+        orders = [order for order in orders if order <= self._total_order_per_session]
+        # self.logger().info(f"Order sizes right now: {orders}")
+        min_chunk = min(orders)
+        max_chunk = max(orders)
+        avg_chunk = round(sum(orders) / num_entries)
+        self.logger().info(f"Order size range: {min_chunk},{max_chunk}. Avg = {avg_chunk}")
+        return (min_chunk, max_chunk, avg_chunk)
+
     cdef c_place_orders(self, object market_info):
         """
         If TWAP, places an individual order specified by the user input if the user has enough balance and if the order quantity
@@ -619,13 +656,16 @@ cdef class VwapTradeStrategy(StrategyBase):
         """
         cdef:
             ExchangeBase market = market_info.market
-            # TODO: check the order book depth first as well
             object quantized_amount = Decimal(0)
             object quantized_price = market.c_quantize_order_price(market_info.trading_pair, Decimal(self._floor_price))
             OrderBook order_book = market_info.order_book
 
         if self._is_vwap:
-            order_price = order_book.c_get_price(self._is_buy) if self._order_type == "market" else self._floor_price
+            spot_price = order_book.c_get_price(self._is_buy)
+            is_buzzer_price = self.check_buzzer_price(spot_price)
+            if is_buzzer_price:
+                pass
+            order_price = spot_price if self._order_type == "market" else max(self._floor_price, spot_price)
             slippage_amount = order_price * self._percent_slippage * 0.01
             if self._is_buy:
                 slippage_price = order_price + slippage_amount
@@ -633,25 +673,33 @@ cdef class VwapTradeStrategy(StrategyBase):
                 slippage_price = order_price - slippage_amount
 
             if self._use_messari_api:
-                # TODO: work within rate limiter here (don't do this too frequently)
-                if (self._current_timestamp - self._trading_volume_checkpoint_time > 120) or self._first_order:
-                    self.logger().info("Fetching the latest trading volume info from Messari")
-                    self._last_hour_trading_volume = self._ms_obj.get_1hr_trading_volume_on_exchange()
+                # self.logger().info(f"Seconds since fetching trading volume: {self._current_timestamp - self._trading_volume_checkpoint_time}")
+                if (self._current_timestamp - self._trading_volume_checkpoint_time) > self._messari_api_rate:
+                    # self.logger().info("Fetching the latest trading volume info from Messari")
+                    self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume_on_exchange()
+                    # checkpoint with the current timestamp
                     self._trading_volume_checkpoint_time = self._current_timestamp
+
                 fixed_rate = 0.01  # TODO: adjust if buzzer_price reached
-                order_cap = self._order_percent_of_volume * self._last_hour_trading_volume * fixed_rate
-
-                self.logger().info(f"Last hour of trading volume: {self._last_hour_trading_volume}")
+                order_cap = self._order_percent_of_volume * self._session_tracking["last_hour_trading_volume"] * fixed_rate
+                (_min, _max, _avg) = self.c_get_order_depth(10)
+                if order_cap < _avg:
+                    order_cap = _avg  # use the avg if order_cap is below avg
+                # _last_hour_trading_volume = self._session_tracking["last_hour_trading_volume"]
+                # self.logger().info(f"Last hour of trading volume: {_last_hour_trading_volume}")
                 quantized_amount = Decimal.from_float(order_cap)
-
+                if quantized_amount > self._quantity_remaining:
+                    quantized_amount = self._quantity_remaining
+                quantized_price = Decimal.from_float(order_price)
             else:  # if not messari, then let's try the exchange
                 total_order_volume = order_book.c_get_volume_for_price(self._is_buy, float(slippage_price))
                 if total_order_volume.result_volume > 0:
-                    self.logger().info(f"Total order volume: {total_order_volume.result_volume}")
+                    # self.logger().info(f"Total order volume: {total_order_volume.result_volume}")
                     order_cap = self._order_percent_of_volume * total_order_volume.result_volume * 0.01
-                    self.logger().info(f"Order cap => {order_cap}")
+                    # self.logger().info(f"Order cap => {order_cap}")
 
                     quantized_amount = quantized_amount.min(Decimal.from_float(order_cap))
+                    quantized_price = Decimal.from_float(order_price)
                 else:
                     self.logger().info("No trading volume info available right now.")
                     self.stop_hb_app()
@@ -696,6 +744,30 @@ cdef class VwapTradeStrategy(StrategyBase):
                 self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
         else:
             self.logger().warning(f"Not possible to break the order into the desired number of segments.")
+
+        # record session info
+        self.record_session_info()
+        self.print_session_info()
+
+    def record_session_info(self):
+        if self._session_tracking["total_order_per_session"] <= 0:
+            # reset the total for session
+            self._session_tracking["total_order_per_session"] = self._total_order_per_session
+            self._session_tracking["session_duration"] = self._current_timestamp - self._session_tracking["session_duration"]
+            self._session_tracking["count"] -= 1
+
+        return
+
+    def print_session_info(self):
+        self.logger().info(f"trading session info: {self._session_tracking}")
+        return
+
+    def check_buzzer_price(self, current_price):
+        if current_price > self._buzzer_price:
+            # accelrate order amounts by the specified percentage
+            self._session_tracking["buzzer_price_reached"] = True
+            return True
+        return False
 
     cdef c_has_enough_balance(self, object market_info):
         """
@@ -772,3 +844,8 @@ cdef class VwapTradeStrategy(StrategyBase):
         if len(cancel_order_ids) > 0:
             for order in cancel_order_ids:
                 self.c_cancel_order(market_info, order)
+
+        if self._session_tracking["total_order_amount"] == 0 or self._quantity_remaining == 0:
+            self.logger().info(f"Remaining tokens: {self._quantity_remaining}")
+            self.stop_hb_app()
+            return

@@ -50,9 +50,9 @@ cdef class VwapTradeStrategy(StrategyBase):
         double _trading_time_duration_secs
         double _trading_start_time
         double _trading_volume_checkpoint_time
-        double _last_hour_trading_volume
         bint _is_vwap
         bint _use_messari_api
+        int _messari_api_rate
         object _ms_obj
         double _percent_slippage
         double _order_percent_of_volume
@@ -62,11 +62,13 @@ cdef class VwapTradeStrategy(StrategyBase):
         dict _time_to_cancel
         dict _order_id_to_market_info
         dict _in_flight_cancels
+        dict _session_tracking
         bint _hb_app_notification
 
         int64_t _logging_options
 
     cdef object c_get_mid_price(self)
+    cdef c_get_order_depth(self, num_entries)
     cdef c_check_last_order(self, object order_event)
     cdef c_process_market(self, object market_info)
     cdef c_place_orders(self, object market_info)

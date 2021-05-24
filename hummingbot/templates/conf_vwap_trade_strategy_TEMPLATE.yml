@@ -56,8 +56,11 @@ buzzer_price: null
 # Percent to increase the order limit
 buzzer_percent: null
 
-# Where to get volume data
+# use messari api for trading volume info
 use_messari_api: null
+
+# How often to query mesari api (rate limiting)
+messari_api_rate: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

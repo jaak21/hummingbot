@@ -20,6 +20,7 @@ def start(self):
         is_vwap = vwap_trade_config_map.get("is_vwap").value
         num_individual_orders = vwap_trade_config_map.get("num_individual_orders").value
         num_trading_sessions = vwap_trade_config_map.get("num_trading_sessions").value
+        messari_api_rate = vwap_trade_config_map.get("messari_api_rate").value
         percent_slippage = vwap_trade_config_map.get("percent_slippage").value
         use_messari_api = vwap_trade_config_map.get("use_messari_api").value
         order_percent_of_volume = vwap_trade_config_map.get("order_percent_of_volume").value
@@ -42,6 +43,9 @@ def start(self):
         if num_trading_sessions < 1:
             self._notify("number of trading sessions must be >= 1")
             return
+        if messari_api_rate < 60:
+            self._notify("too frequent api call rate for Messari")
+            return
 
         try:
             assets: Tuple[str, str] = self._initialize_market_assets(market, [raw_market_symbol])[0]
@@ -63,6 +67,7 @@ def start(self):
         self.strategy = VwapTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                           hb_app_notification=True,
                                           use_messari_api=use_messari_api,
+                                          messari_api_rate=messari_api_rate,
                                           order_type=order_type,
                                           floor_price=floor_price,
                                           buzzer_price=buzzer_price,

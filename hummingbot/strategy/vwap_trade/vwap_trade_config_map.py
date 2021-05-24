@@ -106,6 +106,13 @@ vwap_trade_config_map = {
                   prompt="Enter True or False to use the Messari API for trading volume info (default is True) >>> ",
                   type_str="bool",
                   default=True),
+    "messari_api_rate":
+        ConfigVar(key="messari_api_rate",
+                  prompt="How often to fetch trading volume from Messari ? (Enter 60 to indicate 60 seconds. "
+                         "Default is 1)? >>> ",
+                  required_if=lambda: vwap_trade_config_map.get("is_vwap").value is False,
+                  type_str="float",
+                  default=60),
     "time_delay":
         ConfigVar(key="time_delay",
                   prompt="How many seconds do you want to wait between each individual order? (Enter 10 to indicate 10 seconds. "
