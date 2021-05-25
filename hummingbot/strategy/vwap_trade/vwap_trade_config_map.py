@@ -82,13 +82,6 @@ vwap_trade_config_map = {
                   required_if=lambda: vwap_trade_config_map.get("is_vwap").value is False,
                   type_str="float",
                   default=1),
-    "num_trading_sessions":
-        ConfigVar(key="num_trading_sessions",
-                  prompt="Into how many trading sessions to split the total order? (Enter 12 to indicate 12 sessions. "
-                         "Default is 1)? >>> ",
-                  required_if=lambda: vwap_trade_config_map.get("is_vwap").value is False,
-                  type_str="float",
-                  default=1),
     "percent_slippage":
         ConfigVar(key="percent_slippage",
                   prompt="What percent of price do you want to calculate open order volume? (default is 0 percent slippage) >>> ",

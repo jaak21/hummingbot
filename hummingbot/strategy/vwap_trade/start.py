@@ -19,7 +19,6 @@ def start(self):
         time_delay = vwap_trade_config_map.get("time_delay").value
         is_vwap = vwap_trade_config_map.get("is_vwap").value
         num_individual_orders = vwap_trade_config_map.get("num_individual_orders").value
-        num_trading_sessions = vwap_trade_config_map.get("num_trading_sessions").value
         messari_api_rate = vwap_trade_config_map.get("messari_api_rate").value
         percent_slippage = vwap_trade_config_map.get("percent_slippage").value
         use_messari_api = vwap_trade_config_map.get("use_messari_api").value
@@ -36,12 +35,16 @@ def start(self):
             cancel_order_wait_time = vwap_trade_config_map.get("cancel_order_wait_time").value
         buzzer_price = vwap_trade_config_map.get("buzzer_price").value
         buzzer_percent = vwap_trade_config_map.get("buzzer_percent").value
+        num_trading_sessions = round(total_order_amount / total_order_per_session)
 
-        if total_order_per_session > total_order_amount:
-            self._notify("total order per session cannot be greater than total order amount!")
+        if floor_price > buzzer_price:
+            self._notify("invalid input: floor price cannot be greater than buzzer price")
             return
-        if num_trading_sessions < 1:
-            self._notify("number of trading sessions must be >= 1")
+        if buzzer_percent > 200:
+            self._notify("invalid input: buzzer percent cannot be greater than 200%")
+            return
+        if total_order_per_session > total_order_amount:
+            self._notify("invalid input: total order per session cannot be greater than total order amount!")
             return
         if messari_api_rate < 60:
             self._notify("too frequent api call rate for Messari")

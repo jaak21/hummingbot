@@ -2,6 +2,9 @@ from messari import Messari
 from datetime import date
 import json
 
+DEFAULT_CURRENCY = "USD"
+EXCHANGE_ALIAS = {"coinbase_pro": "coinbase", }  # TODO: add more known aliases
+
 
 def get_trading_volume(crypto_exchange, token_pair, start_date, end_date, duration, api_key=None):
     messari = Messari(key=api_key)
@@ -42,13 +45,16 @@ def get_asset_metrics(token):
     print(json.dumps(resp, indent=4))
 
 
-DEFAULT_CURRENCY = "USD"
+def alias_lookup(name):
+    if name.lower() in EXCHANGE_ALIAS.keys():
+        return EXCHANGE_ALIAS[name]
+    return name
 
 
 class TokenMetrics:
     def __init__(self, token, exchange=None, api_key=None, verbose=False):
         self.token = token.lower()
-        self.exchange = exchange
+        self.exchange = alias_lookup(exchange)
         self.messari = Messari(key=api_key)
         self._data = {"24hr_trading_volume": None, "1hr_trading_volume": None, "price": None}
         self._token_pair = token + "-" + DEFAULT_CURRENCY

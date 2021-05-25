@@ -75,7 +75,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                  total_order_amount: Decimal = Decimal("1.0"),
                  total_order_per_session: Decimal = Decimal("1.0"),
                  buzzer_price: Optional[float] = None,
-                 buzzer_percent: float = 0,
+                 buzzer_percent: float = 0.01,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  trading_time_duration: float = 0.0,
@@ -137,7 +137,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         # number of tokens to sell per session
         self._total_order_per_session = total_order_per_session
         self._session_tracking = {"count": num_trading_sessions, "total_order_per_session": total_order_per_session, "total_order_amount": total_order_amount,
-                                  "session_duration": None, "last_hour_trading_volume": None}
+                                  "session_duration": None, "last_hour_trading_volume": None, "buzzer_price_reached": None}
         self._first_order = True
         self._is_vwap = is_vwap
         self._percent_slippage = percent_slippage
@@ -176,8 +176,9 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         if self._use_messari_api:
             trading_pair = str(self._market_info.trading_pair)
-            # TODO: extract exchange name here
-            self._ms_obj = TokenMetrics(trading_pair.split("-")[0], exchange="coinbase", verbose=True)
+            exchange_name = self._market_info.market.name
+            self.logger().info(f"Getting metrics for exchange: {exchange_name}")
+            self._ms_obj = TokenMetrics(trading_pair.split("-")[0], exchange=exchange_name, verbose=True)
             self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume_on_exchange()
 
         cdef:
@@ -662,9 +663,11 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         if self._is_vwap:
             spot_price = order_book.c_get_price(self._is_buy)
-            is_buzzer_price = self.check_buzzer_price(spot_price)
-            if is_buzzer_price:
-                pass
+            self.check_buzzer_price(spot_price)
+            if self._session_tracking["buzzer_price_reached"] is True:
+                fixed_rate = float(self._buzzer_percent / 100)
+            else:
+                fixed_rate = 0.01
             order_price = spot_price if self._order_type == "market" else max(self._floor_price, spot_price)
             slippage_amount = order_price * self._percent_slippage * 0.01
             if self._is_buy:
@@ -680,11 +683,14 @@ cdef class VwapTradeStrategy(StrategyBase):
                     # checkpoint with the current timestamp
                     self._trading_volume_checkpoint_time = self._current_timestamp
 
-                fixed_rate = 0.01  # TODO: adjust if buzzer_price reached
                 order_cap = self._order_percent_of_volume * self._session_tracking["last_hour_trading_volume"] * fixed_rate
                 (_min, _max, _avg) = self.c_get_order_depth(10)
-                if order_cap < _avg:
-                    order_cap = _avg  # use the avg if order_cap is below avg
+                if self._session_tracking["buzzer_price_reached"] is True:
+                    if (order_cap + _avg) < _max:
+                        order_cap += _avg
+                else:
+                    if order_cap < _avg:
+                        order_cap = _avg  # use the avg if order_cap is below avg
                 # _last_hour_trading_volume = self._session_tracking["last_hour_trading_volume"]
                 # self.logger().info(f"Last hour of trading volume: {_last_hour_trading_volume}")
                 quantized_amount = Decimal.from_float(order_cap)
@@ -747,7 +753,7 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         # record session info
         self.record_session_info()
-        self.print_session_info()
+        # self.print_session_info()
 
     def record_session_info(self):
         if self._session_tracking["total_order_per_session"] <= 0:
@@ -766,8 +772,8 @@ cdef class VwapTradeStrategy(StrategyBase):
         if current_price > self._buzzer_price:
             # accelrate order amounts by the specified percentage
             self._session_tracking["buzzer_price_reached"] = True
-            return True
-        return False
+            return
+        self._session_tracking["buzzer_price_reached"] = False
 
     cdef c_has_enough_balance(self, object market_info):
         """
@@ -847,5 +853,6 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         if self._session_tracking["total_order_amount"] == 0 or self._quantity_remaining == 0:
             self.logger().info(f"Remaining tokens: {self._quantity_remaining}")
+            self.print_session_info()
             self.stop_hb_app()
             return
