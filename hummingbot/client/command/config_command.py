@@ -27,6 +27,9 @@ from hummingbot.strategy.pure_market_making import (
 from hummingbot.strategy.perpetual_market_making import (
     PerpetualMarketMakingStrategy
 )
+from hummingbot.strategy.vwap_trade import (
+    VwapTradeStrategy
+)
 from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -35,6 +38,7 @@ if TYPE_CHECKING:
 
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
 no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
+no_restart_custom_keys = ["total_order_per_session", "is_vwap", "percent_slippage", "order_percent_of_volume", "messari_api_rate", "time_delay", "floor_price", "cancel_order_wait_time", "buzzer_price", "buzzer_percent", "trading_time_duration"]
 global_configs_to_display = ["0x_active_cancels",
                              "autofill_import",
                              "kill_switch_enabled",
@@ -116,6 +120,9 @@ class ConfigCommand:
         elif key in no_restart_pmm_keys:
             setattr(mm_strategy, key, new_value)
             return True
+        elif key in no_restart_custom_keys:
+            setattr(mm_strategy, key, new_value)
+            return True
         return False
 
     async def _config_single_key(self,  # type: HummingbotApplication
@@ -160,7 +167,8 @@ class ConfigCommand:
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
             if isinstance(self.strategy, PureMarketMakingStrategy) or \
-               isinstance(self.strategy, PerpetualMarketMakingStrategy):
+               isinstance(self.strategy, PerpetualMarketMakingStrategy) or \
+               isinstance(self.strategy, VwapTradeStrategy):
                 updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
                     self._notify(f"\nThe current {self.strategy_name} strategy has been updated "

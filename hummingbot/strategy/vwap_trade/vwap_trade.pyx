@@ -225,13 +225,11 @@ cdef class VwapTradeStrategy(StrategyBase):
 
     @property
     def order_amount(self) -> Decimal:
-        return self._total_order_per_session
+        return self._total_order_amount
 
     @order_amount.setter
     def order_amount(self, value: Decimal):
-        # only set it the updated value is less than the total order amount
-        if value <= self._total_order_amount:
-            self._total_order_per_session = value
+        self._total_order_amount = value
 
     @property
     def order_levels(self) -> int:
@@ -375,6 +373,91 @@ cdef class VwapTradeStrategy(StrategyBase):
         else:
             mid_price = self._market_info.get_mid_price()
         return mid_price
+
+    # "total_order_per_session", "is_vwap", "percent_slippage", "order_percent_of_volume", "messari_api_rate",
+    # "time_delay", "floor_price", "cancel_order_wait_time", "buzzer_price", "buzzer_percent", "trading_time_duration"
+
+    @property
+    def total_order_per_session(self) -> Decimal:
+        return self._session_tracking["total_order_per_session"]
+
+    @total_order_per_session.setter
+    def total_order_per_session(self, value: Decimal):
+        # only set it the updated value is less than the total order amount and quantity remaining
+        if value <= self._total_order_amount and value <= self._quantity_remaining:
+            self._session_tracking["total_order_per_session"] = value
+
+    @property
+    def is_vwap(self) -> bool:
+        return self._is_vwap
+
+    @is_vwap.setter
+    def is_vwap(self, value: bool):
+        self._is_vwap = value
+
+    @property
+    def buzzer_price(self) -> float:
+        return self._buzzer_price
+
+    @buzzer_price.setter
+    def buzzer_price(self, value: float):
+        self._buzzer_price = value
+
+    @property
+    def buzzer_percent(self) -> float:
+        return self._buzzer_percent
+
+    @buzzer_percent.setter
+    def buzzer_percent(self, value: float):
+        self._buzzer_percent = value
+
+    @property
+    def trading_time_duration(self) -> float:
+        return self._trading_time_duration_secs
+
+    @trading_time_duration.setter
+    def trading_time_duration(self, value: float):
+        self._trading_time_duration_secs = value * 3600
+
+    @property
+    def percent_slippage(self) -> float:
+        return self._percent_slippage
+
+    @percent_slippage.setter
+    def percent_slippage(self, value: float):
+        self._percent_slippage = value
+
+    @property
+    def messari_api_rate(self) -> int:
+        return self._messari_api_rate
+
+    @messari_api_rate.setter
+    def messari_api_rate(self, value: int):
+        self._messari_api_rate = value
+
+    @property
+    def floor_price(self) -> float:
+        return self._floor_price
+
+    @floor_price.setter
+    def floor_price(self, value: float):
+        self._floor_price = value
+
+    @property
+    def time_delay(self) -> float:
+        return self._time_delay
+
+    @time_delay.setter
+    def time_delay(self, value: float):
+        self._time_delay = value
+
+    @property
+    def cancel_order_wait_time(self) -> float:
+        return self._cancel_order_wait_time
+
+    @cancel_order_wait_time.setter
+    def cancel_order_wait_time(self, value: float):
+        self._cancel_order_wait_time = value
 
 # end - properties for script
 
