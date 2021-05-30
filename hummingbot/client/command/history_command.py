@@ -83,13 +83,12 @@ class HistoryCommand:
 
     async def get_current_balances(self,  # type: HummingbotApplication
                                    market: str):
+        paper_trade_suffix = '_PaperTrade'
+
         if market in self.markets and self.markets[market].ready:
             return self.markets[market].get_all_balances()
-        elif "Paper" in market:
-            paper_balances = global_config_map["paper_trade_account_balance"].value
-            if paper_balances is None:
-                return {}
-            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        elif paper_trade_suffix in market:
+            return self.markets[market[:-len(paper_trade_suffix)]].get_all_balances()
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
@@ -148,11 +147,11 @@ class HistoryCommand:
             [f"{base:<17}",
              smart_round(perf.start_base_bal, precision),
              smart_round(perf.cur_base_bal, precision),
-             smart_round(perf.tot_vol_base, precision)],
+             smart_round(perf.cur_base_bal - perf.start_base_bal, precision)],
             [f"{quote:<17}",
              smart_round(perf.start_quote_bal, precision),
              smart_round(perf.cur_quote_bal, precision),
-             smart_round(perf.tot_vol_quote, precision)],
+             smart_round(perf.cur_quote_bal - perf.start_quote_bal, precision)],
             [f"{trading_pair + ' price':<17}",
              smart_round(perf.start_price),
              smart_round(perf.cur_price),
