@@ -934,8 +934,12 @@ cdef class VwapTradeStrategy(StrategyBase):
             for order in cancel_order_ids:
                 self.c_cancel_order(market_info, order)
 
-        if self._session_tracking["total_order_amount"] == 0 or self._quantity_remaining == 0:
-            self.logger().info(f"Remaining tokens: {self._quantity_remaining}")
-            self.print_session_info()
-            self.stop_hb_app()
-            return
+        if self._quantity_remaining == 0:
+            if not self._has_outstanding_order:
+                if self._is_buy:
+                    self.logger().info(f"Bought: {self._total_order_amount}")
+                else:
+                    self.logger().info(f"Sold: {self._total_order_amount}")
+                self.print_session_info()
+                self.stop_hb_app()
+                return
