@@ -1,6 +1,9 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
+    validate_int,
+    validate_bool,
+    validate_decimal,
     validate_market_trading_pair,
 )
 from hummingbot.client.settings import (
@@ -64,23 +67,24 @@ vwap_trade_config_map = {
                   prompt="What is the desired quantity per trading session (denominated in the base asset, default is 1)? "
                          ">>> ",
                   default=1.0,
+                  validator=lambda v: validate_decimal(v, 0, vwap_trade_config_map.get("total_order_amount").value, inclusive=True),
                   type_str="float"),
     "is_buy":
         ConfigVar(key="is_buy",
                   prompt="Enter True for Buy order and False for Sell order (default is Buy Order) >>> ",
                   type_str="bool",
-                  default=True),
+                  default=True, validator=validate_bool),
     "is_vwap":
         ConfigVar(key="is_vwap",
                   prompt="Would you like to use VWAP or TWAP? (default is VWAP) >>> ",
                   type_str="bool",
-                  default=True),
+                  default=True, validator=validate_bool),
     "num_individual_orders":
         ConfigVar(key="num_individual_orders",
                   prompt="Into how many individual orders do you want to split this order? (Enter 10 to indicate 10 individual orders. "
                          "Default is 1)? >>> ",
                   required_if=lambda: vwap_trade_config_map.get("is_vwap").value is False,
-                  type_str="float",
+                  type_str="int",
                   default=1),
     "percent_slippage":
         ConfigVar(key="percent_slippage",
@@ -98,14 +102,16 @@ vwap_trade_config_map = {
         ConfigVar(key="use_messari_api",
                   prompt="Enter True or False to use the Messari API for trading volume info (default is True) >>> ",
                   type_str="bool",
-                  default=True),
+                  default=True,
+                  validator=validate_bool),
     "messari_api_rate":
         ConfigVar(key="messari_api_rate",
-                  prompt="How often to fetch trading volume from Messari ? (Enter 60 to indicate 60 seconds. "
+                  prompt="How often to fetch trading volume from Messari ? (Enter 30 to indicate 30 seconds. "
                          "Default is 1)? >>> ",
                   required_if=lambda: vwap_trade_config_map.get("is_vwap").value is False,
-                  type_str="float",
-                  default=60),
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=30, inclusive=True),
+                  default=30),
     "time_delay":
         ConfigVar(key="time_delay",
                   prompt="How many seconds do you want to wait between each individual order? (Enter 10 to indicate 10 seconds. "
@@ -128,11 +134,13 @@ vwap_trade_config_map = {
         ConfigVar(key="buzzer_price",
                   prompt="What is the ceiling price to accelerate the limit order sizes ? >>> ",
                   required_if=lambda: vwap_trade_config_map.get("order_type").value == "limit",
+                  validator=lambda v: validate_decimal(v, vwap_trade_config_map.get("floor_price").value, inclusive=False),
                   type_str="float"),
     "buzzer_percent":
         ConfigVar(key="buzzer_percent",
                   prompt="What is the desired percent increase if buzzer price is reached ? >>> ",
                   required_if=lambda: vwap_trade_config_map.get("order_type").value == "limit",
+                  validator=lambda v: validate_decimal(v, 0, 200, inclusive=True),
                   type_str="float"),
 
     "trading_time_duration":
@@ -140,5 +148,6 @@ vwap_trade_config_map = {
                   prompt="How many hours do you want to run the trade with the bot? "
                          "(Default is 24 hours)? >>> ",
                   type_str="float",
+                  validator=lambda v: validate_decimal(v, 1, inclusive=False),
                   default=24, prompt_on_new=True),
 }

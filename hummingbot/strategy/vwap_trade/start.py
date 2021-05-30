@@ -40,14 +40,8 @@ def start(self):
         if floor_price > buzzer_price:
             self._notify("invalid input: floor price cannot be greater than buzzer price")
             return
-        if buzzer_percent > 200:
-            self._notify("invalid input: buzzer percent cannot be greater than 200%")
-            return
         if total_order_per_session > total_order_amount:
             self._notify("invalid input: total order per session cannot be greater than total order amount!")
-            return
-        if messari_api_rate < 60:
-            self._notify("too frequent api call rate for Messari")
             return
 
         try:
