@@ -96,6 +96,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                  hb_app_notification: bool = False,
                  use_messari_api: bool = False,
                  messari_api_rate: int = 60,
+                 pause_trading_flag: bool = False,
                  order_override: Dict[str, List[str]] = {}):
 
         """
@@ -168,6 +169,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._buzzer_percent = buzzer_percent
         self._use_messari_api = use_messari_api
         self._messari_api_rate = messari_api_rate
+        self._pause_trading_flag = pause_trading_flag
 
         if floor_price is not None:
             self._floor_price = floor_price
@@ -208,12 +210,12 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._order_override = value
 
     @property
-    def should_stop_trading(self):
-        return self._should_stop_trading
+    def pause_trading(self):
+        return self._pause_trading_flag
 
-    @should_stop_trading.setter
-    def should_stop_trading(self, value: bool):
-        self._should_stop_trading = value
+    @pause_trading.setter
+    def pause_trading(self, value: bool):
+        self._pause_trading_flag = value
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
@@ -665,6 +667,9 @@ cdef class VwapTradeStrategy(StrategyBase):
 
         :param timestamp: current tick timestamp
         """
+        if self._pause_trading_flag:
+            return
+
         StrategyBase.c_tick(self, timestamp)
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)

@@ -150,4 +150,11 @@ vwap_trade_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 1, inclusive=False),
                   default=24, prompt_on_new=True),
+    "pause_trading":
+        ConfigVar(key="pause_trading",
+                  prompt="Should pause the trading bot? >>> ",
+                  type_str="bool",
+                  default=False,
+                  required_if=lambda: False,
+                  validator=validate_bool),
 }

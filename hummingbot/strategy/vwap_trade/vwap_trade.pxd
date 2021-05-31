@@ -11,7 +11,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         bint _place_orders
         bint _is_buy
         str _order_type
-        bint _should_stop_trading
+        bint _pause_trading_flag
 
         # fields to support script capabilities
         object _bid_spread

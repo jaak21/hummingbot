@@ -26,6 +26,7 @@ def start(self):
         market = vwap_trade_config_map.get("market").value.lower()
         raw_market_symbol = vwap_trade_config_map.get("market_trading_pair_tuple").value
         trading_time_duration = vwap_trade_config_map.get("trading_time_duration").value
+        pause_trading_flag = vwap_trade_config_map.get("pause_trading").value
 
         floor_price = None
         cancel_order_wait_time = None
@@ -80,6 +81,7 @@ def start(self):
                                           order_percent_of_volume=order_percent_of_volume,
                                           total_order_amount=total_order_amount,
                                           total_order_per_session=total_order_per_session,
+                                          pause_trading_flag=pause_trading_flag,
                                           logging_options=strategy_logging_options)
     except Exception as e:
         self._notify(str(e))

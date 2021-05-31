@@ -65,10 +65,10 @@ class YTMonitorScript(ScriptBase):
         units = event.base_asset_amount
         # print(f"Bought {token}: {amount} units @ ${price} {price_currency}")
         self.update_balances(units, price, True)
-        self.status = f"bought units: {print_comma_only(self.total_units_bought)} {token}, "
-        self.status += f"total balance: {print_currency(self.total_balance)}, "
-        self.status += f"avg price: {print_currency(self.average_price)}"
-        self.notify(self.status)
+        self.status = f"bought = {print_comma_only(self.total_units_bought)} {token}, "
+        self.status += f"total balance = {print_currency(self.total_balance)}, "
+        self.status += f"avg price = {print_currency(self.average_price)}"
+        self.log(self.status)
 
     def on_sell_order_completed(self, event: SellOrderCompletedEvent):
         token = event.base_asset
@@ -76,10 +76,10 @@ class YTMonitorScript(ScriptBase):
         units = event.base_asset_amount
         # print(f"Sold {token}: {amount} units @ ${price} {price_currency}")
         self.update_balances(units, price, False)
-        self.status = f"sold units: {print_comma_only(self.total_units_sold)} {token}, "
-        self.status += f"total balance: {print_currency(self.total_balance)}, "
-        self.status += f"avg price: {print_currency(self.average_price)}"
-        self.notify(self.status)
+        self.status = f"sold = {print_comma_only(self.total_units_sold)} {token}, "
+        self.status += f"total balance = {print_currency(self.total_balance)}, "
+        self.status += f"avg price = {print_currency(self.average_price)}"
+        self.log(self.status)
 
     def on_status(self):
         return f"{self.status}"
