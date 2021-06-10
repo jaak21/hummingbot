@@ -182,6 +182,10 @@ cdef class VwapTradeStrategy(StrategyBase):
             self.logger().info(f"Getting metrics for exchange: {exchange_name}")
             self._ms_obj = TokenMetrics(trading_pair.split("-")[0], exchange=exchange_name, verbose=True)
             self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume_on_exchange()
+            if self._session_tracking["last_hour_trading_volume"] is None:
+                self.logger().info(f"Failed to get trading volume on {exchange_name} so here's trading volume from market data.")
+                self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume()
+                self.logger().info(f"Trading volume: {self._session_tracking['last_hour_trading_volume']}")
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
