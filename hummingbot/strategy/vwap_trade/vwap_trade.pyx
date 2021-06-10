@@ -772,11 +772,15 @@ cdef class VwapTradeStrategy(StrategyBase):
                 if (self._current_timestamp - self._trading_volume_checkpoint_time) > self._messari_api_rate:
                     # self.logger().info("Fetching the latest trading volume info from Messari")
                     self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume_on_exchange()
+                    if self._session_tracking["last_hour_trading_volume"] is None:
+                        self._session_tracking["last_hour_trading_volume"] = self._ms_obj.get_1hr_trading_volume()
+                        self.logger().info(f"Trading volume: {self._session_tracking['last_hour_trading_volume']}")
+
                     # checkpoint with the current timestamp
                     self._trading_volume_checkpoint_time = self._current_timestamp
 
                 order_cap = self._order_percent_of_volume * self._session_tracking["last_hour_trading_volume"] * fixed_rate
-                (_min, _max, _avg) = self.c_get_order_depth(10)
+                (_min, _max, _avg) = self.c_get_order_depth(20)
                 if self._session_tracking["buzzer_price_reached"] is True:
                     if (order_cap + _avg) < _max:
                         order_cap += _avg
