@@ -56,6 +56,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         object _ms_obj
         double _percent_slippage
         double _order_percent_of_volume
+        double _order_size_factor
         bint _has_outstanding_order
 
         dict _tracked_orders

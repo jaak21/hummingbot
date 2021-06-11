@@ -100,6 +100,13 @@ vwap_trade_config_map = {
                   required_if=lambda: vwap_trade_config_map.get("is_vwap").value is True,
                   type_str="float",
                   default=0.01, prompt_on_new=True),
+    "order_size_factor":
+        ConfigVar(key="order_size_factor",
+                  prompt="What constant factor do you want to divide the order sizes (if the order sizes are too high)? (default is 1) >>> ",
+                  required_if=lambda: vwap_trade_config_map.get("is_vwap").value is True,
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, 1, inclusive=True),
+                  default=1, prompt_on_new=True),
     "use_messari_api":
         ConfigVar(key="use_messari_api",
                   prompt="Enter True or False to use the Messari API for trading volume info (default is True) >>> ",

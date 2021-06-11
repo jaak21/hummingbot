@@ -72,6 +72,7 @@ cdef class VwapTradeStrategy(StrategyBase):
                  num_trading_sessions: int = 1,
                  percent_slippage: float = 0,
                  order_percent_of_volume: float = 100,
+                 order_size_factor: float = 1,
                  total_order_amount: Decimal = Decimal("1.0"),
                  total_order_per_session: Decimal = Decimal("1.0"),
                  buzzer_price: Optional[float] = None,
@@ -143,6 +144,7 @@ cdef class VwapTradeStrategy(StrategyBase):
         self._is_vwap = is_vwap
         self._percent_slippage = percent_slippage
         self._order_percent_of_volume = order_percent_of_volume
+        self._order_size_factor = order_size_factor
         self._has_outstanding_order = False
 
         self._trading_time_duration_secs = trading_time_duration * 3600
@@ -342,6 +344,22 @@ cdef class VwapTradeStrategy(StrategyBase):
     @order_optimization_enabled.setter
     def order_optimization_enabled(self, value: bool):
         self._order_optimization_enabled = value
+
+    @property
+    def order_percent_of_volume(self) -> float:
+        return self._order_percent_of_volume
+
+    @order_percent_of_volume.setter
+    def order_percent_of_volume(self, value: float):
+        self._order_percent_of_volume = value
+
+    @property
+    def order_size_factor(self) -> float:
+        return self._order_size_factor
+
+    @order_size_factor.setter
+    def order_size_factor(self, value: float):
+        self._order_size_factor = value
 
     @property
     def order_refresh_time(self) -> float:
@@ -800,12 +818,15 @@ cdef class VwapTradeStrategy(StrategyBase):
                     order_cap = self._order_percent_of_volume * total_order_volume.result_volume * 0.01
                     # self.logger().info(f"Order cap => {order_cap}")
 
-                    quantized_amount = quantized_amount.min(Decimal.from_float(order_cap))
+                    quantized_amount = quantized_amount.min(Decimal.from_float(order_cap)) / self._order_size_factor
                     quantized_price = Decimal.from_float(order_price)
                 else:
                     self.logger().info("No trading volume info available right now.")
                     self.stop_hb_app()
                     return
+        if self._order_size_factor > 1:
+            self.logger().info(f"Reducing the order size by a constant factor => {self._order_size_factor}")
+            quantized_amount = quantized_amount / Decimal.from_float(self._order_size_factor)
 
         self.logger().info(f"Placing order limit w/ amount => {round(quantized_amount, 6)}")
 

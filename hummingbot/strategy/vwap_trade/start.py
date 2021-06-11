@@ -23,6 +23,7 @@ def start(self):
         percent_slippage = vwap_trade_config_map.get("percent_slippage").value
         use_messari_api = vwap_trade_config_map.get("use_messari_api").value
         order_percent_of_volume = vwap_trade_config_map.get("order_percent_of_volume").value
+        order_size_factor = vwap_trade_config_map.get("order_size_factor").value
         market = vwap_trade_config_map.get("market").value.lower()
         raw_market_symbol = vwap_trade_config_map.get("market_trading_pair_tuple").value
         trading_time_duration = vwap_trade_config_map.get("trading_time_duration").value
@@ -79,6 +80,7 @@ def start(self):
                                           trading_time_duration=trading_time_duration,
                                           percent_slippage=percent_slippage,
                                           order_percent_of_volume=order_percent_of_volume,
+                                          order_size_factor=order_size_factor,
                                           total_order_amount=total_order_amount,
                                           total_order_per_session=total_order_per_session,
                                           pause_trading_flag=pause_trading_flag,

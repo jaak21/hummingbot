@@ -34,6 +34,9 @@ percent_slippage: null
 # Percent of order to allow the specified percent slippage
 order_percent_of_volume: null
 
+# Order size constant factor (if order sizes are too high)
+order_size_factor: null
+
 # How long to between placing incremental orders
 time_delay: null
 
