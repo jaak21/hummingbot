@@ -125,6 +125,9 @@ class TokenMetrics:
             print("Failed to get data")
             return None
         data = resp.get("data")
+        if type(data.get("values")) is not list:
+            print("Trading volume values are empty")
+            return None
         values = data.get("values")[0]
         self._data["1hr_trading_volume_time"], self._data["1hr_trading_volume"] = values[0], values[1]
         return self._data["1hr_trading_volume"]
@@ -154,9 +157,9 @@ class TokenMetrics:
 if __name__ == "__main__":
     duration = '1h'
     crypto_exchange = 'coinbase'
-    token_pair = 'xtz-usd'
+    token_pair = 'amp-usd'
 
-    tm = TokenMetrics('XTZ', exchange='coinbase', verbose=True)
+    tm = TokenMetrics('AMP', exchange='coinbase', verbose=True)
     print("Using get_market_timeseries() api ...")
     print("Trading volume (1 hr):", tm.get_1hr_trading_volume_on_exchange())
     print("Current price: ", tm.get_price())
